@@ -19,7 +19,7 @@ Distraction Blocker edits the Windows hosts file through a protected background 
 
 ## Install
 
-1. Download `DistractionBlocker-v0.1.0-windows-x64.zip` from the GitHub Releases page.
+1. Download the latest `DistractionBlocker-vX.Y.Z-windows-x64.zip` from the GitHub Releases page.
 2. Extract the archive.
 3. Open PowerShell as Administrator in the extracted folder.
 4. Run:
@@ -30,6 +30,16 @@ Distraction Blocker edits the Windows hosts file through a protected background 
    ```
 
 The installer creates a desktop shortcut and a clearly named `DistractionBlockerWorker` scheduled task. Existing configuration from pre-release `SystemOptimizer` builds is migrated automatically.
+
+### Updating
+
+Close the Distraction Blocker window, extract the newer release, and run its installer again from an elevated PowerShell window:
+
+```powershell
+.\installer\install.ps1
+```
+
+The installer stops the existing background worker before replacing it and preserves your blocklist, schedule, and active state.
 
 To remove the application, run `installer\uninstall.ps1` from an elevated PowerShell window.
 

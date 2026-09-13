@@ -2,6 +2,13 @@
 
 All notable changes to Distraction Blocker are documented here.
 
+## 0.1.1 - 2026-09-13
+
+### Fixed
+
+- Stop and unregister the running worker before replacing its executable during an update
+- Retry locked executable copies briefly and report a clear error when the GUI is still open
+
 ## 0.1.0 - 2026-09-09
 
 ### Added

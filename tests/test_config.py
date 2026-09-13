@@ -22,6 +22,16 @@ class InstallLayoutTests(unittest.TestCase):
         self.assertEqual(config.INSTALL_DIR.name, "DistractionBlocker")
         self.assertEqual(config.TASK_NAME, "DistractionBlockerWorker")
 
+    def test_installer_stops_worker_before_copying_executable(self) -> None:
+        installer = (
+            Path(__file__).resolve().parents[1] / "installer" / "install.ps1"
+        ).read_text(encoding="utf-8")
+
+        stop_position = installer.index("Stop-ScheduledTask")
+        copy_position = installer.index("Copy-ReleaseFile `")
+        self.assertLess(stop_position, copy_position)
+        self.assertIn("because it is still running", installer)
+
 
 if __name__ == "__main__":
     unittest.main()

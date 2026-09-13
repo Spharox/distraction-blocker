@@ -32,6 +32,38 @@ foreach ($sourcePath in @($WorkerSrc, $GuiSrc)) {
     }
 }
 
+# Stop the installed worker before replacing its executable. On Windows, a
+# running executable cannot be overwritten even by an elevated process.
+Write-Host "Stopping existing Distraction Blocker tasks"
+foreach ($existingTaskName in @($TaskName, $LegacyTaskName)) {
+    if (Get-ScheduledTask -TaskName $existingTaskName -ErrorAction SilentlyContinue) {
+        try { Stop-ScheduledTask -TaskName $existingTaskName -ErrorAction SilentlyContinue } catch {}
+        Unregister-ScheduledTask -TaskName $existingTaskName -Confirm:$false
+    }
+}
+
+function Copy-ReleaseFile {
+    param(
+        [Parameter(Mandatory = $true)][string]$Source,
+        [Parameter(Mandatory = $true)][string]$Destination,
+        [Parameter(Mandatory = $true)][string]$DisplayName
+    )
+
+    $lastError = $null
+    for ($attempt = 1; $attempt -le 20; $attempt++) {
+        try {
+            Copy-Item -Force -LiteralPath $Source -Destination $Destination
+            return
+        }
+        catch [System.IO.IOException] {
+            $lastError = $_
+            Start-Sleep -Milliseconds 250
+        }
+    }
+
+    throw "Could not update $DisplayName because it is still running. Close Distraction Blocker and rerun the installer. $($lastError.Exception.Message)"
+}
+
 Write-Host "Creating protected install directories"
 New-Item -ItemType Directory -Force -Path $InstallDir | Out-Null
 New-Item -ItemType Directory -Force -Path $ConfigDir | Out-Null
@@ -56,8 +88,14 @@ foreach ($principalRule in @(
 }
 Set-Acl -LiteralPath $InstallDir -AclObject $rootAcl
 
-Copy-Item -Force -LiteralPath $WorkerSrc -Destination (Join-Path $InstallDir $WorkerName)
-Copy-Item -Force -LiteralPath $GuiSrc -Destination (Join-Path $InstallDir $GuiName)
+Copy-ReleaseFile `
+    -Source $WorkerSrc `
+    -Destination (Join-Path $InstallDir $WorkerName) `
+    -DisplayName $WorkerName
+Copy-ReleaseFile `
+    -Source $GuiSrc `
+    -Destination (Join-Path $InstallDir $GuiName) `
+    -DisplayName $GuiName
 
 $InteractiveUser = [System.Security.Principal.WindowsIdentity]::GetCurrent().Name
 Write-Host "Granting $InteractiveUser modify rights on configuration only"
@@ -81,11 +119,6 @@ if (Test-Path -LiteralPath $LegacyInstallDir) {
             Copy-Item -LiteralPath $legacyPath -Destination $newPath
         }
     }
-    $legacyState = Join-Path $LegacyInstallDir "state.json"
-    $newState = Join-Path $StateDir "state.json"
-    if ((Test-Path -LiteralPath $legacyState) -and -not (Test-Path -LiteralPath $newState)) {
-        Copy-Item -LiteralPath $legacyState -Destination $newState
-    }
     $legacyStatePath = Join-Path $LegacyInstallDir "state.json"
     $newStatePath = Join-Path $StateDir "state.json"
     if ((Test-Path -LiteralPath $legacyStatePath) -and -not (Test-Path -LiteralPath $newStatePath)) {
@@ -94,13 +127,6 @@ if (Test-Path -LiteralPath $LegacyInstallDir) {
 }
 
 Write-Host "Registering scheduled task: $TaskName"
-foreach ($existingTaskName in @($TaskName, $LegacyTaskName)) {
-    if (Get-ScheduledTask -TaskName $existingTaskName -ErrorAction SilentlyContinue) {
-        try { Stop-ScheduledTask -TaskName $existingTaskName -ErrorAction SilentlyContinue } catch {}
-        Unregister-ScheduledTask -TaskName $existingTaskName -Confirm:$false
-    }
-}
-
 $action = New-ScheduledTaskAction -Execute (Join-Path $InstallDir $WorkerName)
 $startupTrigger = New-ScheduledTaskTrigger -AtStartup
 $repeatingTrigger = New-ScheduledTaskTrigger -Once -At (Get-Date).AddSeconds(60) `
