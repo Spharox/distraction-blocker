@@ -2,6 +2,13 @@
 
 All notable changes to Distraction Blocker are documented here.
 
+## 0.1.2 - 2026-09-13
+
+### Fixed
+
+- Terminate an orphaned background worker when Task Scheduler leaves it alive during an update
+- Match the installed executable path before terminating a process, avoiding broad name-based process termination
+
 ## 0.1.1 - 2026-09-13
 
 ### Fixed

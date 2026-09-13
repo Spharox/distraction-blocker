@@ -42,6 +42,38 @@ foreach ($existingTaskName in @($TaskName, $LegacyTaskName)) {
     }
 }
 
+# Some Task Scheduler configurations leave the launched process alive after
+# Stop-ScheduledTask/Unregister-ScheduledTask. Terminate only processes whose
+# executable path exactly matches one of our installed workers.
+$installedWorkerPaths = @(
+    (Join-Path $InstallDir $WorkerName),
+    (Join-Path $LegacyInstallDir "SystemOptimizer.exe")
+)
+foreach ($processName in @($WorkerName, "SystemOptimizer.exe")) {
+    $escapedProcessName = $processName.Replace("'", "''")
+    $workerProcesses = Get-CimInstance `
+        -ClassName Win32_Process `
+        -Filter "Name = '$escapedProcessName'" `
+        -ErrorAction Stop
+    foreach ($workerProcess in $workerProcesses) {
+        $pathMatches = $false
+        foreach ($installedWorkerPath in $installedWorkerPaths) {
+            if ([string]::Equals(
+                $workerProcess.ExecutablePath,
+                $installedWorkerPath,
+                [System.StringComparison]::OrdinalIgnoreCase
+            )) {
+                $pathMatches = $true
+                break
+            }
+        }
+        if ($pathMatches) {
+            Write-Host "Stopping installed worker process $($workerProcess.ProcessId)"
+            Stop-Process -Id $workerProcess.ProcessId -Force -ErrorAction Stop
+        }
+    }
+}
+
 function Copy-ReleaseFile {
     param(
         [Parameter(Mandatory = $true)][string]$Source,

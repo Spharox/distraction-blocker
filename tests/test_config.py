@@ -28,8 +28,14 @@ class InstallLayoutTests(unittest.TestCase):
         ).read_text(encoding="utf-8")
 
         stop_position = installer.index("Stop-ScheduledTask")
+        exact_path_position = installer.index("$workerProcess.ExecutablePath")
+        process_stop_position = installer.index(
+            "Stop-Process -Id $workerProcess.ProcessId"
+        )
         copy_position = installer.index("Copy-ReleaseFile `")
         self.assertLess(stop_position, copy_position)
+        self.assertLess(exact_path_position, process_stop_position)
+        self.assertLess(process_stop_position, copy_position)
         self.assertIn("because it is still running", installer)
 
 
